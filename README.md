@@ -22,7 +22,7 @@ and then move it to your desktop.
 If your system has a GPU compatible with CUDA 11.3, the application will automatically take advantage of it.
 You don't need to install CUDA itself, it comes with the packaging.
 
-<img src="assets/app_main.png" width="900" height="540" />
+<img src="assets/app_main.png" width="640" height="400" />
 
 ## Data Preparation
 Data for training and predictions must be organized in a directory structure like this:
@@ -41,7 +41,7 @@ Select the desired number of epochs, and click `Train`. Each epoch will have a n
 of available training items times 0.9. Total number of steps for usable results is about 500-1000 (or more), so divide
 this number by the training data set size to get the number of epochs necessary for training.
 
-<img src="assets/app_training.png" width="900" height="540" />
+<img src="assets/app_training.png" width="640" height="400" />
 
 After each epoch a checkpoint (model weights) file is saved in the *Model Weights Directory*:
 `APOE_epoch001.pth`, `APOE_epoch002.pth`, `APOE_epoch003.pth`, etc. You may want to manually delete older epoch files,
@@ -61,7 +61,7 @@ If you see messages like `Class <<APOE>> -- Source images: 10` and **Model Weigh
 you are ready to go with predictions. Press *Predict*, sit back and wait. The results are stored in the directory
 `C:\LipidData\prediction_data\APOE\predicted_masks`.
 
-<img src="assets/app_prediction.png" width="900" height="540" />
+<img src="assets/app_prediction.png" width="640" height="400" />
 
 ## Setting Up Development Environment
 
