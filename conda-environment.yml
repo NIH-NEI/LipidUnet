@@ -1,0 +1,15 @@
+name: LipidUnet
+channels:
+  - pytorch
+dependencies:
+  - python==3.9
+  - pip
+  - numpy
+  - scikit-image
+  - imageio
+  - imagecodecs
+  - pytorch
+  - torchvision
+  - pip:
+    - tk
+
