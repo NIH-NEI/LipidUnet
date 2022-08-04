@@ -28,6 +28,9 @@ class LipidUnetMainWinnow(object):
         self._train_dataset = None
         self._predict_dataset = None
         #
+        self._busy = False
+        self._pt_map = {}
+        #
         # screen_width = window.winfo_screenwidth()
         # window_width = screen_width * 50 // 100
         # screen_height = window.winfo_screenheight()
@@ -215,6 +218,33 @@ class LipidUnetMainWinnow(object):
             pass
     #
     @property
+    def pt_map(self):
+        return self._pt_map
+    @pt_map.setter
+    def pt_map(self, v):
+        self._pt_map.clear()
+        try:
+            self._pt_map.update(v)
+        except Exception:
+            pass
+    #
+    def _update_pt_map(self):
+        if self._busy: return
+        dcls = self.predictClass
+        if not dcls is None:
+            self._pt_map[dcls] = [self.sensitivity, self.autoSens]
+        self.saveState()
+    #
+    def _recall_pt_map(self):
+        dcls = self.predictClass
+        if dcls is None or not dcls in self._pt_map:
+            sens, autoSens = 65, False
+        else:
+            sens, autoSens = self._pt_map[dcls]
+        self.sensitivity = sens
+        self.autoSens = autoSens
+    #
+    @property
     def sensitivity(self):
         try:
             return self.sensitivityVar.get()
@@ -234,7 +264,7 @@ class LipidUnetMainWinnow(object):
         try:
             v = self.sensitivityVar.get()
             if v > 0 and v <= 100:
-                self.saveState()
+                self._update_pt_map()
         except Exception:
             pass
     #
@@ -257,7 +287,7 @@ class LipidUnetMainWinnow(object):
         try:
             v = self.autoVar.get()
             if v in (0, 1):
-                self.saveState()
+                self._update_pt_map()
         except Exception:
             pass
     #
@@ -268,11 +298,20 @@ class LipidUnetMainWinnow(object):
     def predictDir(self, v):
         self.predictDirVar.set(v)
     #
+    @property
+    def predictClass(self):
+        try:
+            with self.lock:
+                dcls = self._predict_dataset.set_name
+            return dcls
+        except Exception:
+            return None
+    #
     def onPredictDirVar(self, a, b, c):
         with self.lock:
             predict_dir = self.predictDir
         if predict_dir and os.path.isdir(predict_dir):
-            self.saveState()
+            self._update_pt_map()
         self.get_predict_dataset()
     #
     def _get_training_dataset(self):
@@ -303,10 +342,12 @@ class LipidUnetMainWinnow(object):
         if not wpath is None:
             fn = os.path.basename(wpath)
             self.window.after(5, self.updateModelWeightsFileInfo, fn)
+        self.window.after(6, self._recall_pt_map)
     #
     def get_predict_dataset(self):
         with self.lock:
             self._predict_dataset = None
+        self._recall_pt_map()
         predict_dir = self.predictDir
         weights_dir = self.weightsDir
         self.updatePredictDatasetInfo('No source images')
@@ -433,9 +474,10 @@ class LipidUnetMainWinnow(object):
         t.setDaemon(True)
         t.start()
     #
-    PERSISTENT_PROPERTIES = ('trainDir', 'numEpochs', 'weightsDir', 'predictDir', 'sensitivity', 'autoSens',)
+    PERSISTENT_PROPERTIES = ('trainDir', 'numEpochs', 'weightsDir', 'predictDir', 'pt_map',)
     #
     def loadState(self):
+        self._busy = True
         try:
             with open(self.statefile, 'r') as fi:
                 params = json.load(fi)
@@ -444,6 +486,7 @@ class LipidUnetMainWinnow(object):
                 setattr(self, prop, params[prop])
         except Exception:
             pass
+        self._busy = False
     #
     def saveState(self):
         try:
