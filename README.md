@@ -20,9 +20,9 @@ and double-click on it. You may also want to create a shortcut for it (Rigth-cli
 and then move it to your desktop.
 
 If your system has a GPU compatible with CUDA 11.3, the application will automatically take advantage of it.
-You don't need to install CUDA itself, it comes with the packaging.
+You don't need to i	nstall CUDA itself, it comes with the packaging.
 
-<img src="assets/app_main.png" width="640" height="400" />
+<img src="assets/app_main.png" width="640" height="418" />
 
 ## Data Preparation
 Data for training and predictions must be organized in a directory structure like this:
@@ -41,7 +41,7 @@ Select the desired number of epochs, and click `Train`. Each epoch will have a n
 of available training items times 0.9. Total number of steps for usable results is about 500-1000 (or more), so divide
 this number by the training data set size to get the number of epochs necessary for training.
 
-<img src="assets/app_training.png" width="640" height="400" />
+<img src="assets/app_training.png" width="640" height="418" />
 
 After each epoch a checkpoint (model weights) file is saved in the *Model Weights Directory*:
 `APOE_epoch001.pth`, `APOE_epoch002.pth`, `APOE_epoch003.pth`, etc. You may want to manually delete older epoch files,
@@ -52,16 +52,40 @@ training will continue from this point.
 ## Predictions
 
 To make predictions, place source images in sub-directory `imgs/` of a data class directory under
-`prediction_data`, e.g. `C:\LipidData\prediction_data\APOE\imgs`. After that, select the data class
-directory `C:\LipidData\prediction_data\APOE` as *Prediction Data Directory* and make sure the *Model Weights Directory*
+`predict_data`, e.g. `C:\LipidData\predict_data\APOE\imgs`. After that, select the data class
+directory `C:\LipidData\predict_data\APOE` as *Prediction Data Directory* and make sure the *Model Weights Directory*
 contains one of the trained data class models, such as `APOE_epoch005.pth`. The application will perform data validation
 and display number of images to process as well as model weights file to use.
 
 If you see messages like `Class <<APOE>> -- Source images: 10` and **Model Weights:** `APOE_epoch005.pth`,
-you are ready to go with predictions. Press *Predict*, sit back and wait. The results are stored in the directory
-`C:\LipidData\prediction_data\APOE\predicted_masks`.
+you are ready to go with predictions. Set desired "Probability Threshold", press *Predict*, sit back and wait.
+The results are stored in the directory `C:\LipidData\predict_data\APOE\predicted_masks`.
 
-<img src="assets/app_prediction.png" width="640" height="400" />
+The "Probability Threshold" parameter controls how the probability map returned by the Machine Learning model
+is converted to output binary mask. The prediction process assigns a probability value (0..1) to each pixel,
+showing how probable is that this pixel is a foreground pixel, rather than a background one. If the probability
+exceeds the PT times 0.01, the pixel is set (1), otherwise, it is cleared (0).
+The lower the value, the more "sensitive" is the algorithm, that is, more pixels are painted as foreground.
+This may reduce the number of non-detected pixels (false negatives), but at the same time increase
+the number of false positives.
+If you observe a significant over-segmentation (i.e. a lot of false negatives), set the PT to a higher value.
+Likewise, if there are lots of false negatives (under-segmentation), you may want to lower the threshold.
+
+The "Auto-Adjust PT" option is enabled when the prediction directory contains a subset of source data accompanied
+by the ground truth data the same way as in the training directory, i.e. some of the images in
+`predict_data\APOE\imgs` have corresponding manually edited masks (ground truth) in
+`predict_data\APOE\masks` . The status message in this case will show the number of "Validation images".
+
+If you check the "Auto-Adjust PT" box, then during the prediction process the application
+will try to automatically determine the best PT by computing a "loss" function based on predicted probability maps
+and corresponding ground truth masks, and determining at which PT setting it is minimal.
+The loss function is determined as sum total of false positive pixels at a given PT plus twice the sum total of
+false negatives at the same PT.
+
+You can use a portion of the training data for this purpose, although it is generally not recommended.
+If you happen to have some extra data in form of source image + GT mask pairs, please use it instead.
+
+<img src="assets/app_prediction.png" width="640" height="418" />
 
 ## Setting Up Development Environment
 

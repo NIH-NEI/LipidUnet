@@ -11,7 +11,7 @@ from train import train_proc
 from predict import predict_proc
 
 APP_NAME = 'Lipid U-Net'
-APP_VERSION = '0.0.1 (2022-07-25)'
+APP_VERSION = '0.0.2 (2022-08-04)'
 
 class LipidUnetMainWinnow(object):
     def __init__(self, homedir):
@@ -40,6 +40,10 @@ class LipidUnetMainWinnow(object):
         self.modelWeightsDirVar = tk.StringVar()
         self.numEpochsVar = tk.IntVar()
         self.numEpochsVar.set(10)
+        self.sensitivityVar = tk.IntVar()
+        self.sensitivityVar.set(65)
+        self.autoVar = tk.IntVar()
+        self.autoVar.set(0)
         self.predictDirVar = tk.StringVar()
         #
         self.frame = frame = tk.Frame(window, relief=tk.RAISED, borderwidth=1)
@@ -103,17 +107,25 @@ class LipidUnetMainWinnow(object):
         self.lbPredictSet = lbPredictSet = tk.Label(lfpredict, text='No source images', padx=10, fg='#005')
         lbPredictSet.grid(column=0, row=1, columnspan=3, sticky=tk.W)
         #
+        mwLbl = tk.Label(lfpredict, text="Model Weights:", padx=10)
+        mwLbl.grid(column=0, row=2, sticky=tk.E)
+        self.mwFileLbl = mwFileLbl = tk.Label(lfpredict, text="N/A", padx=10, width=62, fg='#005', anchor=tk.W)
+        mwFileLbl.grid(column=1, row=2, columnspan=2, sticky=tk.W)
+        #
         frpred = tk.Frame(lfpredict)
-        frpred.grid(column=0, row=2, columnspan=3, pady=5, sticky=tk.W)
-        mwLbl = tk.Label(frpred, text="Model Weights:", padx=10)
-        mwLbl.grid(column=0, row=0, sticky=tk.E)
-        self.mwFileLbl = mwFileLbl = tk.Label(frpred, text="N/A", padx=10, width=62, fg='#005', anchor=tk.W)
-        mwFileLbl.grid(column=1, row=0, sticky=tk.W)
+        frpred.grid(column=0, row=3, columnspan=2, pady=5, sticky=tk.E)
+        lbSens = tk.Label(frpred, text="Probability Threshold (PT):", padx=10)
+        lbSens.grid(column=0, row=0, sticky=tk.E)
+        self.sensitivityTxt = tk.Entry(frpred, width=16, textvariable=self.sensitivityVar)
+        self.sensitivityTxt.grid(column=2, row=0)
+        self.autoCheck = tk.Checkbutton(frpred, text='Auto Adjust PT',variable=self.autoVar, onvalue=1, offvalue=0)
+        self.autoCheck.grid(column=3, row=0, padx=10)
+        self.autoCheck['state'] = 'disabled'
         predictBtn = tk.Button(frpred, text="Predict", padx=15, command=self.predict)
-        predictBtn.grid(column=2, row=0)
+        predictBtn.grid(column=4, row=0)
         #
         self.lfprogr = lfprogr = tk.LabelFrame(frame, text="Task Progress")
-        lfprogr.grid(column=0, row=3, sticky=tk.W+tk.E, pady=5)
+        lfprogr.grid(column=0, row=4, sticky=tk.W+tk.E, pady=5)
         self.lbCurTask = lbCurTask = tk.Label(lfprogr, text='Idle', padx=10, fg='#005')
         lbCurTask.grid(column=0, row=0, columnspan=2, sticky=tk.W)
         self.pbTrain = pbTrain = ttk.Progressbar(lfprogr, orient=tk.HORIZONTAL, length=500, mode='determinate')
@@ -132,6 +144,8 @@ class LipidUnetMainWinnow(object):
         self.modelWeightsDirVar.trace('w', self.onModelWeightsDirVar)
         self.numEpochsVar.trace('w', self.onNumEpochsVar)
         self.predictDirVar.trace('w', self.onPredictDirVar)
+        self.sensitivityVar.trace('w', self.onSensitivityVar)
+        self.autoVar.trace('w', self.onAutoVar)
         #
         self.loadState()
     #
@@ -201,6 +215,53 @@ class LipidUnetMainWinnow(object):
             pass
     #
     @property
+    def sensitivity(self):
+        try:
+            return self.sensitivityVar.get()
+        except Exception:
+            return 65
+    #
+    @sensitivity.setter
+    def sensitivity(self, v):
+        try:
+            v = int(v)
+            assert v > 0 and v <= 100
+            self.sensitivityVar.set(v)
+        except Exception:
+            self.sensitivityVar.set(65)
+    #
+    def onSensitivityVar(self, a, b, c):
+        try:
+            v = self.sensitivityVar.get()
+            if v > 0 and v <= 100:
+                self.saveState()
+        except Exception:
+            pass
+    #
+    @property
+    def autoSens(self):
+        try:
+            return self.autoVar.get()
+        except Exception:
+            return 0
+    @autoSens.setter
+    def autoSens(self, v):
+        try:
+            v = int(v)
+            assert v in (0, 1)
+            self.autoVar.set(v)
+        except Exception:
+            self.autoVar.set(0)
+    #
+    def onAutoVar(self, a, b, c):
+        try:
+            v = self.autoVar.get()
+            if v in (0, 1):
+                self.saveState()
+        except Exception:
+            pass
+    #
+    @property
     def predictDir(self):
         return self.predictDirVar.get()
     @predictDir.setter
@@ -229,9 +290,13 @@ class LipidUnetMainWinnow(object):
             predict_dir, weights_dir = self._predict_ds_par
         ds = SegmentDataset(predict_dir, checkpoints_subdir=weights_dir, predict=True)
         n_imgs = len(ds)
+        n_val = ds.lenval()
         if n_imgs > 0:
-            self.window.after(1, self.updatePredictDatasetInfo,
-                    f'Class <<{ds.set_name}>> -- Source images: {n_imgs}')
+            if n_val == 0:
+                dsinfo = f'Class <<{ds.set_name}>> -- Source images: {n_imgs}; No validation images.'
+            else:
+                dsinfo = f'Class <<{ds.set_name}>> -- Source images: {n_imgs}; Validation images: {n_val}'
+            self.window.after(1, self.updatePredictDatasetInfo, dsinfo)
             with self.lock:
                 self._predict_dataset = ds
         epoch, wpath = ds.last_checkpoint()
@@ -255,6 +320,11 @@ class LipidUnetMainWinnow(object):
     #
     def updatePredictDatasetInfo(self, txt):
         self.lbPredictSet['text'] = txt
+        st = 'disabled'
+        with self.lock:
+            if self._predict_dataset and self._predict_dataset.lenval() > 0:
+                st = 'normal'
+        self.autoCheck['state'] = st
     #
     def updateModelWeightsFileInfo(self, txt):
         self.mwFileLbl['text'] = txt
@@ -273,10 +343,15 @@ class LipidUnetMainWinnow(object):
             self.pbTrain['value'] = pct
             self.lbPct['text'] = '%1.1f%%' % (pct,)
     #
+    def updateProbThreshold(self, v):
+        self.sensitivityVar.set(v)
+    #
     def status(self, txt):
         self.window.after(1, self.updateStatus, txt)
     def progress(self, pct):
         self.window.after(1, self.updateProgress, pct)
+    def threshold(self, v):
+        self.window.after(1, self.updateProbThreshold, v)
     def stop_requested(self):
         return self._stop_requested
     #
@@ -351,12 +426,14 @@ class LipidUnetMainWinnow(object):
                 return
             self._busy = True
             self._stop_requested = False
-            self._predict_param = (self.predictDir, self.weightsDir, 0.65, True, self)
+            autosense = self._predict_dataset.lenval() > 0 and self.autoSens
+            sense = self.sensitivity * 0.01
+            self._predict_param = (self.predictDir, self.weightsDir, sense, autosense, True, self)
         t = threading.Thread(target=self._predict)
         t.setDaemon(True)
         t.start()
     #
-    PERSISTENT_PROPERTIES = ('trainDir', 'numEpochs', 'weightsDir', 'predictDir')
+    PERSISTENT_PROPERTIES = ('trainDir', 'numEpochs', 'weightsDir', 'predictDir', 'sensitivity', 'autoSens',)
     #
     def loadState(self):
         try:

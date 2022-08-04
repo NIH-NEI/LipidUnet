@@ -15,10 +15,55 @@ class DummyCallback(object):
         pass
     def status(self, txt):
         pass
+    def threshold(self, v):
+        pass
     def stop_requested(self):
         return False
 
-def predict_proc(predict_dir, weights_dir, prob, use_cuda, callback):
+class SensitivityEvaluator():
+    def __init__(self, wtneg=2.):
+        self.wtneg = wtneg
+        #
+        self.gt_count = 0
+        self.fpos_counts = [0]*100
+        self.fneg_counts = [0]*100
+    #
+    def accumulate(self, fgd, vmask):
+        self.gt_count += np.count_nonzero(vmask)
+        imask = np.zeros(shape=fgd.shape, dtype=np.uint8)
+        for ii in range(100):
+            i = 99 - ii
+            prob = 0.01*i
+            self.fpos_counts[i] += np.count_nonzero((fgd > prob) & (vmask == 0))
+            self.fneg_counts[i] += np.count_nonzero((fgd <= prob) & (vmask != 0))
+    #
+    def best(self):
+        pct = -1
+        bsf = None
+        norm = 1. / (self.gt_count + 1)
+        for i in range(1,100):
+            loss = (self.fpos_counts[i] + self.wtneg * self.fneg_counts[i]) * norm
+            if bsf is None or loss < bsf:
+                bsf = loss
+                pct = i
+        return pct
+    #
+    
+def infer(imgpath, net, device):
+    img = SegmentDataset.load_image(imgpath)
+    img = torch.from_numpy(img)
+    img = img.unsqueeze(0)
+    img = img.to(device=device, dtype=torch.float32)
+    with torch.no_grad():
+        mask = net(img)
+        mask = torch.sigmoid(mask)[0]
+        mask = mask.cpu().squeeze()
+        bkg = mask[0].numpy()
+        fgd = mask[1].numpy()
+    #
+    return fgd, bkg
+
+def predict_proc(predict_dir, weights_dir, prob, autosense, use_cuda, callback):
     start_ts = datetime.datetime.now()
     if callback is None:
         callback = DummyCallback()
@@ -49,6 +94,33 @@ def predict_proc(predict_dir, weights_dir, prob, use_cuda, callback):
     print('Device:', device)
     print('Model weights:', mfpath)
     #
+    if autosense:
+        eval = SensitivityEvaluator(2.)
+        n_val = dataset.lenval()
+        for i in range(n_val):
+            fn, maskfn = dataset.valitems[i]
+            imgpath = os.path.join(dataset.imgs_dir, fn)
+            maskpath = os.path.join(dataset.masks_dir, maskfn)
+            vmask = SegmentDataset.load_mask(maskpath)
+            #
+            ii = i+1
+            print(f'Adjusting Probability Threshold {ii} / {n_val} -- {imgpath} : {maskpath}')
+            callback.status(f'Adjusting PT <<{dataset.set_name}>> -- {ii} / {n_val} -- {fn}')
+            #
+            fgd, bkg = infer(imgpath, net, device)
+            eval.accumulate(fgd, vmask)
+            #
+            pct = i * 100. / n_val
+            callback.progress(pct)
+        #
+        callback.progress(0.)
+        #print('false positives:', eval.fpos_counts)
+        #print('false negatives:', eval.fneg_counts)
+        iprob = eval.best()
+        callback.threshold(iprob)
+        prob = 0.01 * iprob
+        print('Probability Threshold adjusted to: %0.3f' % (prob,))
+    #
     for i in range(n_imgs):
         if callback.stop_requested():
             break
@@ -60,24 +132,13 @@ def predict_proc(predict_dir, weights_dir, prob, use_cuda, callback):
         print(f'Evaluating {ii} / {n_imgs} -- {imgpath}')
         callback.status(f'Evaluating <<{dataset.set_name}>> -- {ii} / {n_imgs} -- {fn}')
         #
-        img = SegmentDataset.load_image(imgpath)
-        img = torch.from_numpy(img)
-        img = img.unsqueeze(0)
-        img = img.to(device=device, dtype=torch.float32)
-        with torch.no_grad():
-            mask = net(img)
-            mask = torch.sigmoid(mask)[0]
-            mask = mask.cpu().squeeze()
-            bkg = mask[0].numpy()
-            fgd = mask[1].numpy()
-        #
-        maskpath = os.path.join(masks_dir, bn+'_mask.tif')
-        
+        fgd, bkg = infer(imgpath, net, device)
         omask = np.zeros(shape=fgd.shape, dtype=np.uint8)
         omask[fgd > prob] = 0xFF
+        maskpath = os.path.join(masks_dir, bn+'_mask.tif')
         print('Write:', maskpath)
         imageio.imwrite(maskpath, omask)
-
+        #
         pct = i * 100. / n_imgs
         callback.progress(pct)
     #

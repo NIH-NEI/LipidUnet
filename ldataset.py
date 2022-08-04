@@ -23,9 +23,11 @@ class SegmentDataset(Dataset):
         self.masks_dir = os.path.join(self.base_dir, masks_subdir)
         self.mask_suffix = mask_suffix
         self.checkpoints_dir = os.path.join(self.parent_dir, checkpoints_subdir)
+        self.predict = predict
         #
         self.set_name = str(set_name) if set_name else os.path.basename(self.base_dir)
         self.dataitems = []
+        self.valitems = []
         #
         if not os.path.isdir(self.imgs_dir):
             return
@@ -38,10 +40,11 @@ class SegmentDataset(Dataset):
                 if ext.lower() in self.ALLOWED_EXTENSIONS:
                     img_map[bn] = fn
         #
-        if predict:
+        dataitems = self.dataitems
+        if self.predict:
             for bn in sorted(img_map.keys()):
                 self.dataitems.append((img_map[bn], None))
-            return
+            dataitems = self.valitems
         #
         if not os.path.isdir(self.masks_dir):
             return
@@ -60,10 +63,13 @@ class SegmentDataset(Dataset):
                 bn = bn[:-sflen]
                 if not bn in img_map: continue
                 imgfn = img_map[bn]
-                self.dataitems.append((imgfn, fn))
+                dataitems.append((imgfn, fn))
     #
     def __len__(self):
         return len(self.dataitems)
+    #
+    def lenval(self):
+        return len(self.valitems)
     #
     @staticmethod
     def is_miniswhite(imgpath):
