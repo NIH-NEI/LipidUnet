@@ -10,6 +10,8 @@ from torchvision import transforms
 from ldataset import SegmentDataset
 from unet import UNet
 
+from tilesplitter import TileSplitter2D
+
 class DummyCallback(object):
     def progress(self, pct):
         pass
@@ -49,8 +51,8 @@ class SensitivityEvaluator():
         return pct
     #
     
-def infer(imgpath, net, device):
-    img = SegmentDataset.load_image(imgpath)
+def infer(img, net, device):
+    img = SegmentDataset.load_image(img)
     img = torch.from_numpy(img)
     img = img.unsqueeze(0)
     img = img.to(device=device, dtype=torch.float32)
@@ -101,14 +103,19 @@ def predict_proc(predict_dir, weights_dir, prob, autosense, use_cuda, callback):
             fn, maskfn = dataset.valitems[i]
             imgpath = os.path.join(dataset.imgs_dir, fn)
             maskpath = os.path.join(dataset.masks_dir, maskfn)
-            vmask = SegmentDataset.load_mask(maskpath)
+            cdata = imageio.imread(imgpath)
+            cmask = SegmentDataset.load_mask(maskpath)
+            spl = TileSplitter2D(cdata, cmask, mpsize=1)
             #
             ii = i+1
             print(f'Adjusting Probability Threshold {ii} / {n_val} -- {imgpath} : {maskpath}')
             callback.status(f'Adjusting PT <<{dataset.set_name}>> -- {ii} / {n_val} -- {fn}')
             #
-            fgd, bkg = infer(imgpath, net, device)
-            eval.accumulate(fgd, vmask)
+            for idx in range(spl.numtiles()):
+                img = spl.getDataTile(idx)
+                vmask = spl.getMaskTile(idx)
+                fgd, bkg = infer(img, net, device)
+                eval.accumulate(fgd, vmask)
             #
             pct = i * 100. / n_val
             callback.progress(pct)
@@ -127,17 +134,25 @@ def predict_proc(predict_dir, weights_dir, prob, autosense, use_cuda, callback):
         fn, maskfn = dataset.dataitems[i]
         bn, ext = os.path.splitext(fn)
         imgpath = os.path.join(dataset.imgs_dir, fn)
+        cdata = imageio.imread(imgpath)
+        cmask = np.empty(shape=(cdata.shape[0], cdata.shape[1]), dtype=np.uint8)
+        spl = TileSplitter2D(cdata, cmask, mpsize=1)
         #
         ii = i+1
         print(f'Evaluating {ii} / {n_imgs} -- {imgpath}')
         callback.status(f'Evaluating <<{dataset.set_name}>> -- {ii} / {n_imgs} -- {fn}')
         #
-        fgd, bkg = infer(imgpath, net, device)
-        omask = np.zeros(shape=fgd.shape, dtype=np.uint8)
-        omask[fgd > prob] = 0xFF
+        for idx in range(spl.numtiles()):
+            print('Infer:', idx)
+            img = spl.getDataTile(idx)
+            fgd, bkg = infer(img, net, device)
+            tmask = np.zeros(shape=fgd.shape, dtype=np.uint8)
+            tmask[fgd > prob] = 0xFF
+            spl.setMaskTile(idx, tmask)
+        #
         maskpath = os.path.join(masks_dir, bn+'_mask.tif')
         print('Write:', maskpath)
-        imageio.imwrite(maskpath, omask)
+        imageio.imwrite(maskpath, cmask)
         #
         pct = i * 100. / n_imgs
         callback.progress(pct)

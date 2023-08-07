@@ -11,7 +11,7 @@ from train import train_proc
 from predict import predict_proc
 
 APP_NAME = 'Lipid U-Net'
-APP_VERSION = '0.0.2 (2022-08-04)'
+APP_VERSION = '0.0.3 (2023-08-07)'
 
 class LipidUnetMainWinnow(object):
     def __init__(self, homedir):

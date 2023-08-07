@@ -81,7 +81,10 @@ class SegmentDataset(Dataset):
             return False
     @staticmethod
     def load_image(imgpath):
-        img = imageio.imread(imgpath)
+        if isinstance(imgpath, str):
+            img = imageio.imread(imgpath)
+        else:
+            img = imgpath
         if img.dtype == np.uint16:
             img = img.astype(np.float32)
             #otsu = skimage.filters.threshold_otsu(img, 4096)
