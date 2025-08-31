@@ -1,8 +1,14 @@
-# LipidUNet
+# LipidUnet
 
 Machine Learning suite for training a U-Net model to perform semantic segmentation of biomedical images.
 
 *Andrei Volkov, Kapil Bharti, Davide Ortolan, Arvydas Maminishkis (NEI/NIH)*
+
+If you find this code useful, please cite [the following paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC12288051/):
+
+```
+Esh Z, Suresh S, Ortolan D, Farnoodian M, Bose D, Ryu J, Volkov A, Bharti K, Sharma R. LipidUNet-Machine Learning-Based Method of Characterization and Quantification of Lipid Deposits Using iPSC-Derived Retinal Pigment Epithelium. J Vis Exp. 2023 Jul 28;(197):10.3791/65503. doi: 10.3791/65503. PMID: 37578220; PMCID: PMC12288051.
+```
 
 ### Acknowledgements
 
@@ -15,12 +21,12 @@ Olaf Ronneberger, Philipp Fischer, Thomas Brox*](https://arxiv.org/abs/1505.0459
 ## Installation and setup
 
 The binary distribution is currently available for Windows x64 only, it comes in form of a .zip archive
-`LipidNet-X.X.X.zip`. Simply unzip it into a local directory, navigate there, find `LipidNet.bat`
+`LipidUnet-X.X.X-Win64.zip`. Simply unzip it into a local directory, navigate there, find `LipidUnet.bat`
 and double-click on it. You may also want to create a shortcut for it (Rigth-click, then *Create Shortcut*)
 and then move it to your desktop.
 
-If your system has a GPU compatible with CUDA 11.3, the application will automatically take advantage of it.
-You don't need to i	nstall CUDA itself, it comes with the packaging.
+If your system has a GPU compatible with CUDA 11, the application will automatically take advantage of it.
+You don't need to install CUDA youself, it comes with the packaging.
 
 <img src="assets/app_main.png" width="640" height="418" />
 

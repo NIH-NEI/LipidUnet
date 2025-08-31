@@ -1,15 +1,16 @@
 name: LipidUnet
 channels:
-  - pytorch
+  - defaults
 dependencies:
-  - python==3.9
+  - python=3.12
   - pip
-  - numpy
-  - scikit-image
-  - imageio
-  - imagecodecs
-  - pytorch
-  - torchvision
   - pip:
     - tk
-
+    - numpy
+    - scikit-image
+    - imageio
+    - imagecodecs
+    - ./imgaug/
+    - --extra-index-url https://download.pytorch.org/whl/cu118
+    - torch==2.5.1+cu118
+    - torchvision==0.20.1+cu118

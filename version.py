@@ -1,0 +1,3 @@
+APP_NAME = 'Lipid U-Net'
+APP_VERSION = '0.0.4 (2025-08-31)'
+

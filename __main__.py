@@ -10,8 +10,7 @@ from ldataset import SegmentDataset
 from train import train_proc
 from predict import predict_proc
 
-APP_NAME = 'Lipid U-Net'
-APP_VERSION = '0.0.3 (2023-08-07)'
+from version import APP_NAME, APP_VERSION
 
 class LipidUnetMainWinnow(object):
     def __init__(self, homedir):
@@ -175,7 +174,7 @@ class LipidUnetMainWinnow(object):
                 with self.lock:
                     self._train_ds_par = train_dir
                 t = threading.Thread(target=self._get_training_dataset)
-                t.setDaemon(True)
+                t.daemon = True
                 t.start()
                 return
             else:
@@ -356,7 +355,7 @@ class LipidUnetMainWinnow(object):
             with self.lock:
                 self._predict_ds_par = (predict_dir, weights_dir)
             t = threading.Thread(target=self._get_predict_dataset)
-            t.setDaemon(True)
+            t.daemon = True
             t.start()
     #
     def updatePredictDatasetInfo(self, txt):
@@ -434,7 +433,7 @@ class LipidUnetMainWinnow(object):
             self._stop_requested = False
             self._train_param = (self.trainDir, self.weightsDir, self.numEpochs, True, self)
         t = threading.Thread(target=self._train)
-        t.setDaemon(True)
+        t.daemon = True
         t.start()
     #
     def _predict(self):
@@ -471,7 +470,7 @@ class LipidUnetMainWinnow(object):
             sense = self.sensitivity * 0.01
             self._predict_param = (self.predictDir, self.weightsDir, sense, autosense, True, self)
         t = threading.Thread(target=self._predict)
-        t.setDaemon(True)
+        t.daemon = True
         t.start()
     #
     PERSISTENT_PROPERTIES = ('trainDir', 'numEpochs', 'weightsDir', 'predictDir', 'pt_map',)

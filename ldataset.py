@@ -36,6 +36,9 @@ class SegmentDataset(Dataset):
         for fn in os.listdir(self.imgs_dir):
             fpath = os.path.join(self.imgs_dir, fn)
             if os.path.isfile(fpath):
+                if os.stat(fpath).st_size < 128:
+                    print(f'Skip file {fpath}')
+                    continue
                 bn, ext = os.path.splitext(fn)
                 if ext.lower() in self.ALLOWED_EXTENSIONS:
                     img_map[bn] = fn
@@ -59,6 +62,9 @@ class SegmentDataset(Dataset):
             if os.path.isfile(fpath):
                 bn, ex = os.path.splitext(fn)
                 if sflen > 0 and not bn.endswith(mask_suffix):
+                    continue
+                if os.stat(fpath).st_size < 128:
+                    print(f'Skip file {fpath}')
                     continue
                 bn = bn[:-sflen]
                 if not bn in img_map: continue

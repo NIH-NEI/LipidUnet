@@ -91,7 +91,7 @@ def predict_proc(predict_dir, weights_dir, prob, autosense, use_cuda, callback):
     #
     net = UNet(n_channels=3, n_classes=2, bilinear=False)
     net.to(device=device)
-    net.load_state_dict(torch.load(mfpath, map_location=device))
+    net.load_state_dict(torch.load(mfpath, map_location=device, weights_only=True))
     net.eval()
     print('Device:', device)
     print('Model weights:', mfpath)

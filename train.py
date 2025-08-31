@@ -74,7 +74,8 @@ def train_net(net, device, dataset,
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
     optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)  # goal: maximize Dice score
-    grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    #grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    grad_scaler = torch.amp.GradScaler(str(device), enabled=amp)
     criterion = nn.CrossEntropyLoss()
     global_step = 0
     
@@ -101,7 +102,7 @@ def train_net(net, device, dataset,
             images = images.to(device=device, dtype=torch.float32)
             true_masks = true_masks.to(device=device, dtype=torch.long)
 
-            with torch.cuda.amp.autocast(enabled=amp):
+            with torch.amp.autocast(str(device), enabled=amp):
                 masks_pred = net(images)
                 loss = criterion(masks_pred, true_masks) \
                        + dice_loss(F.softmax(masks_pred, dim=1).float(),
@@ -175,7 +176,7 @@ def train_proc(train_dir, weights_dir, n_epochs, use_cuda, callback):
     net.to(device=device)
     if not mfpath is None:
         print('Loading model weights from', mfpath)
-        net.load_state_dict(torch.load(mfpath, map_location=device))
+        net.load_state_dict(torch.load(mfpath, map_location=device, weights_only=True))
     #
     train_net(net, device, dataset,
         start_epoch=epoch+1,
